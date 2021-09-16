@@ -30,11 +30,13 @@ def gen_fitted_graphs(path_in: str, path_out: str) -> None:
             graphs_to_fitt.append(nx.read_gpickle('{}/{}'.format(path_in, file)))
             path_out_fitted.append('{}/{}'.format(path_out, file))
 
-    full_history = []
+    full_history = [['Name', 'discrete-binomial', 'discrete-geometric', 'discrete-poisson', 'Max']]
     for ii, graph in enumerate(graphs_to_fitt):
         print('Calculating: ', path_out_fitted[ii])
         _, graph_tool_graph, _ = _generate_graphtool_graph(graph)
         distribution, state, history = _find_best_distribution(graph_tool_graph)
+
+        history = [path_out_fitted[ii].split('/')[-1], *history]
 
         assert state is not None
         infered_param_inside, infered_param_outside = _infer_distribution_parameters_from_graph(graph_tool_graph, state, distribution)
@@ -66,14 +68,14 @@ def _write_result(path: str, graph: graph_tool.Graph, state: BlockState, distrib
 
 
 def _write_history(path: str, history: list):
-    with open('{}/history.csv'.format(path), 'rb', newline='') as file:
+    with open('{}/history.csv'.format(path), 'w+', newline='') as file:
         writer = csv.writer(file)
         writer.writerows(history)
 
 
-def _minimize(graph: graph_tool.Graph, distribution="discrete-binomial", deg_corr=False, overlap=False) -> BlockState:
+def _minimize(graph: graph_tool.Graph, distribution="discrete-binomial", deg_corr=False) -> BlockState:
     return minimize_blockmodel_dl(graph,
-                                  state_args=dict(deg_corr=deg_corr, recs=[graph.ep.shifted_weight], rec_types=[distribution], overlap=overlap),
+                                  state_args=dict(deg_corr=deg_corr, recs=[graph.ep.shifted_weight], rec_types=[distribution]),
                                   multilevel_mcmc_args=dict(B_min=1, B_max=30, niter=100, entropy_args=dict(adjacency=False, degree_dl=False)))
 
 
@@ -85,13 +87,15 @@ def _find_best_distribution(graph: graph_tool.Graph):
     best_entropy = np.inf
     history = []
     for distribution in distributions:
-        state: BlockState = _minimize(graph, distribution=distribution, deg_corr=False, overlap=False)
-        entropy = state.entropy(adjacency=False, degree_dl=False)
+        state: BlockState = _minimize(graph, deg_corr=False)
+        entropy = state.entropy(adjacency=False, distribution=distribution, degree_dl=False)
         if entropy < best_entropy:
             best_entropy = entropy
             best_distribution = distribution
             best_state = state
-        history.append((distribution, entropy))
+        history.append(entropy)
+
+    history.append(best_distribution)
 
     return best_distribution, best_state, history
 
@@ -129,7 +133,7 @@ def _infer_distribution_parameters_from_weights(weights: list, distribution="dis
             p = pm.Gamma('p', alpha=alpha, beta=beta)
             y = pm.Poisson('y', mu=p, observed=weights)
 
-        trace = pm.sample(2000, tune=1000, cores=4)
+        trace = pm.sample(2000, tune=1000, cores=4, return_inferencedata=False)
 
         # print(pm.summary(trace).to_string()), pmcy3 does not have a summary function
         # pm.traceplot(trace)
@@ -145,7 +149,7 @@ def _generate_graphtool_graph(graph: nx.Graph):
     edges_negative = [(i, j) for (i, j) in graph_positive_edges.edges() if graph_positive_edges[i][j]['weight'] < 2.5]
     graph_positive_edges.remove_edges_from(edges_negative)
 
-    position_information = nx.nx_agraph.graphviz_layout(graph_positive_edges, args='-LN<200>', prog='sfdp')
+    position_information = nx.nx_agraph.graphviz_layout(graph_positive_edges, prog='sfdp')
 
     graph_tool_graph = _sem_eval_2_graph_tool(graph, position_information)
 
@@ -228,4 +232,4 @@ def _sem_eval_2_graph_tool(graph: nx.Graph, position_dict: dict) -> graph_tool.G
 
 
 if __name__ == '__main__':
-    gen_fitted_graphs('data/wugs/dwug_en/graphs/semeval/', 'data/wugs/fitted/dwug_en')
+    gen_fitted_graphs('data/wugs/dwug_de/graphs/semeval/', 'data/wugs/bad_fitted/dwug_de')

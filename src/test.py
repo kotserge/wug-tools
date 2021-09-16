@@ -16,7 +16,7 @@ with open('data/best_fit/g_dist_states', 'rb') as file:
 file.close()
 
 for k, v in g_dist_states.items():
-    print('Key ', k)
+    print('Key ', k, ' Distribution: ', v[0])
 exit()
 
 for k, v in g_dist_states.items():
