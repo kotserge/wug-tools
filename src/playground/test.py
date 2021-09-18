@@ -15,9 +15,9 @@ with open('data/best_fit/g_dist_states', 'rb') as file:
     g_dist_states: dict = pickle.load(file)
 file.close()
 
-for k, v in g_dist_states.items():
-    print('Key ', k, ' Distribution: ', v[0])
-exit()
+# for k, v in g_dist_states.items():
+#   print('Key ', k, ' Distribution: ', v[0])
+# exit()
 
 for k, v in g_dist_states.items():
     print('============')
@@ -28,6 +28,8 @@ for k, v in g_dist_states.items():
     print('Nodes: ', state.get_N())
     print('Edges: ', state.get_E())
     print('Blocks: ', state.get_B())
+    # pos, _ = state.draw()
+    # state.draw(output='old/{}.png'.format(k))
     graph: gt.Graph = state.g
     print('Edge Properties: ', graph.list_properties())
     print('Parameters Edges', state.get_rec_params())

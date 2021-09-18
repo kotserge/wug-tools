@@ -11,6 +11,7 @@ import pymc3 as pm
 import graph_tool
 from graph_tool.inference.blockmodel import BlockState
 from graph_tool.inference import minimize_blockmodel_dl
+from graph_tool.draw import graph_draw
 
 
 def gen_fitted_graphs(path_in: str, path_out: str) -> None:
@@ -48,6 +49,9 @@ def gen_fitted_graphs(path_in: str, path_out: str) -> None:
         except FileExistsError:
             print('File or Directory for this graph exists, will not write results')
 
+        print('==========================================')
+        print('Done with: {}%'.format((ii + 1) / len(graphs_to_fitt) * 100))
+
     _write_history(path_out, full_history)
 
 
@@ -66,6 +70,8 @@ def _write_result(path: str, graph: graph_tool.Graph, state: BlockState, distrib
         pickle.dump({'distribution': distribution, 'infered_param_inside': infered_param_inside, 'infered_param_outside': infered_param_outside}, file)
     file.close()
 
+    draw_graph(graph, state, '{}/{}.png'.format(path, file_prefix))
+
 
 def _write_history(path: str, history: list):
     with open('{}/history.csv'.format(path), 'w+', newline='') as file:
@@ -75,7 +81,7 @@ def _write_history(path: str, history: list):
 
 def _minimize(graph: graph_tool.Graph, distribution="discrete-binomial", deg_corr=False) -> BlockState:
     return minimize_blockmodel_dl(graph,
-                                  state_args=dict(deg_corr=deg_corr, recs=[graph.ep.shifted_weight], rec_types=[distribution]),
+                                  state_args=dict(deg_corr=deg_corr, recs=[graph.ep.original_weight], rec_types=[distribution]),
                                   multilevel_mcmc_args=dict(B_min=1, B_max=30, niter=100, entropy_args=dict(adjacency=False, degree_dl=False)))
 
 
@@ -87,8 +93,8 @@ def _find_best_distribution(graph: graph_tool.Graph):
     best_entropy = np.inf
     history = []
     for distribution in distributions:
-        state: BlockState = _minimize(graph, deg_corr=False)
-        entropy = state.entropy(adjacency=False, distribution=distribution, degree_dl=False)
+        state: BlockState = _minimize(graph, distribution=distribution, deg_corr=False)
+        entropy = state.entropy(adjacency=False, degree_dl=False)
         if entropy < best_entropy:
             best_entropy = entropy
             best_distribution = distribution
@@ -231,5 +237,30 @@ def _sem_eval_2_graph_tool(graph: nx.Graph, position_dict: dict) -> graph_tool.G
     return graph_tool_graph
 
 
+def draw_graph(graph: graph_tool.Graph, state: BlockState, title: str):
+    b = state.get_blocks()
+    b = graph_tool.perfect_prop_hash([b])[0]
+
+    gray = [0.5, 0.5, 0.5, 1.0]
+    black = [0.1, 0.1, 0.1, 1.0]
+    ecolor = graph.new_edge_property("vector<double>")
+    epen = graph.new_edge_property("double")
+
+    for e in graph.edges():
+        if graph.ep.original_weight[e] == 4:
+            ecolor[e] = black
+            epen[e] = 2
+        elif graph.ep.original_weight[e] == 3:
+            ecolor[e] = black
+            epen[e] = 0.9
+        else:
+            ecolor[e] = gray
+            epen[e] = 0.5
+
+    # Maybe use graphviz
+    graph_draw(graph, pos=graph.vp.pos, vertex_size=12, vertex_fill_color=b, edge_color=ecolor, edge_pen_width=epen,
+               fit_view=True, adjust_aspect=False, ink_scale=0.9, output_size=(640, 480), output=title, overlap=True)
+
+
 if __name__ == '__main__':
-    gen_fitted_graphs('data/wugs/dwug_de/graphs/semeval/', 'data/wugs/bad_fitted/dwug_de')
+    gen_fitted_graphs('data/wugs/dwug_en/graphs/semeval/', 'data/wugs/new_fitted/dwug_en')
