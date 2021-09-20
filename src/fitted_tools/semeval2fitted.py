@@ -117,10 +117,10 @@ def _calculate_weigts_of_graph(graph: graph_tool.Graph, state: BlockState):
     vertices = graph.get_vertices()
 
     outside_edges = [item for item in edges if b[vertices[int(item[0])]] != b[vertices[int(item[1])]]]
-    outside_weights = [item[2] for item in outside_edges]
+    outside_weights = [item[2] - 1 for item in outside_edges]
 
     inside_edges = [item for item in edges if b[vertices[int(item[0])]] == b[vertices[int(item[1])]]]
-    inside_weights = [item[2] for item in inside_edges]
+    inside_weights = [item[2] - 1 for item in inside_edges]
     return inside_weights, outside_weights
 
 
@@ -131,7 +131,7 @@ def _infer_distribution_parameters_from_weights(weights: list, distribution="dis
     with pm.Model() as model:  # context management
         if distribution == "discrete-binomial":
             p = pm.Beta('p', alpha=alpha, beta=beta)
-            y = pm.Binomial('y', n=4, p=p, observed=weights)
+            y = pm.Binomial('y', n=3, p=p, observed=weights)
         elif distribution == "discrete-geometric":
             p = pm.Beta('p', alpha=alpha, beta=beta)
             y = pm.Geometric('y', p=p, observed=weights)
@@ -202,10 +202,6 @@ def _sem_eval_2_graph_tool(graph: nx.Graph, position_dict: dict) -> graph_tool.G
     for i, j in graph.edges():
         current_weight = graph[i][j]['weight']
         if current_weight != 0 and not np.isnan(current_weight):
-            if isinstance(current_weight, float):
-                round_func = math.ceil if bool(random.getrandbits(1)) else math.floor
-                current_weight = round_func(current_weight)
-
             graph_tool_graph.add_edge(vertex_id[i], vertex_id[j])
             new_weights.append(current_weight)
 
@@ -263,4 +259,4 @@ def draw_graph(graph: graph_tool.Graph, state: BlockState, title: str):
 
 
 if __name__ == '__main__':
-    gen_fitted_graphs('data/wugs/dwug_en/graphs/semeval/', 'data/wugs/new_fitted/dwug_en')
+    gen_fitted_graphs('data/wugs/dwug_en/graphs/semeval/', 'data/wugs/float_n3_fit/dwug_en')
