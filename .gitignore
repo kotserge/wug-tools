@@ -131,3 +131,6 @@ dmypy.json
 # some miscellaneous stuff
 data/
 .vscode/
+
+# Ignore evals
+evals
