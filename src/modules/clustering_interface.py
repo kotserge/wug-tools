@@ -140,11 +140,11 @@ def wsbm_clustering(graph: nx.Graph, distribution: str = 'discrete-binomial') ->
         A list of sets of nodes, where each set is a cluster
     """
 
-    gt_graph, _ = _nxgraph_to_graphtoolgraph(graph.copy())
+    gt_graph, _, gt2nx = _nxgraph_to_graphtoolgraph(graph.copy())
     state: BlockState = _minimize(gt_graph, distribution)
 
     block2clusterid_map = {}
-    for i, (k, v) in enumerate(dict(sorted(Counter(state.get_blocks().get_array()).items(), key=lambda item: item[1], reverse=True)).items()):
+    for i, (k, _) in enumerate(dict(sorted(Counter(state.get_blocks().get_array()).items(), key=lambda item: item[1], reverse=True)).items()):
         block2clusterid_map[k] = i
 
     communities = {}
@@ -155,7 +155,7 @@ def wsbm_clustering(graph: nx.Graph, distribution: str = 'discrete-binomial') ->
             communities[community_id] = []
         communities[community_id].append(nx_vertex_id)
 
-    classes = [set(v) for k, v in communities.items()]
+    classes = [set(v) for _, v in communities.items()]
     classes.sort(key=lambda x: len(x), reverse=True)
 
     return classes
@@ -165,8 +165,10 @@ def _nxgraph_to_graphtoolgraph(graph: nx.Graph):
     graph_tool_graph = graph_tool.Graph(directed=False)
 
     nx2gt_vertex_id = dict()
+    gt2nx_vertex_id = dict()
     for i, node in enumerate(graph.nodes()):
         nx2gt_vertex_id[node] = i
+        gt2nx_vertex_id[i] = node
 
     new_weights = []
     for i, j in graph.edges():
@@ -184,7 +186,7 @@ def _nxgraph_to_graphtoolgraph(graph: nx.Graph):
         new_vertex_id[v] = str(k)
     graph_tool_graph.vp.id = new_vertex_id
 
-    return graph_tool_graph, nx2gt_vertex_id
+    return graph_tool_graph, nx2gt_vertex_id, gt2nx_vertex_id
 
 
 def _minimize(graph: graph_tool.Graph, distribution) -> BlockState:
