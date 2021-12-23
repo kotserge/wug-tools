@@ -2,8 +2,6 @@
 This module contains multiple functions for clustering (networkx) graphs.
 """
 
-import random
-
 import numpy as np
 import networkx as nx
 from collections import Counter
@@ -73,7 +71,7 @@ def chinese_whispers_clustering(graph: nx.Graph, weighting: str = 'top', iterati
 
     _cw_clustering = cw.aggregate_clusters(cw.chinese_whispers(_graph, weighting=weighting, iterations=iterations, seed=seed))
 
-    classes = [v for k, v in _cw_clustering.items()]
+    classes = [v for _, v in _cw_clustering.items()]
     classes.sort(key=lambda x: len(x), reverse=True)
 
     return classes
@@ -104,7 +102,7 @@ def louvain_clustering(graph: nx.Graph, init_partition: dict = None, resolution:
 
     _louvain_clustering = _invert_cluster_label_dict(community_louvain.best_partition(_graph, partition=init_partition, resolution=resolution, random_state=random_state))
 
-    classes = [v for k, v in _louvain_clustering.items()]
+    classes = [v for _, v in _louvain_clustering.items()]
     classes.sort(key=lambda x: len(x), reverse=True)
 
     return classes
