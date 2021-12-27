@@ -179,7 +179,7 @@ def _nxgraph_to_graphtoolgraph(graph: nx.Graph):
     original_edge_weights.a = new_weights
     graph_tool_graph.ep['weight'] = original_edge_weights
 
-    new_vertex_id = graph_tool_graph.new_vertex_property('str')
+    new_vertex_id = graph_tool_graph.new_vertex_property('string')
     for k, v in nx2gt_vertex_id.items():
         new_vertex_id[v] = str(k)
     graph_tool_graph.vp.id = new_vertex_id
