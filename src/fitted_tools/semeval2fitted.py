@@ -306,8 +306,8 @@ def draw_graph(graph: graph_tool.Graph, state: BlockState, title: str):
 
     # Maybe use graphviz
     graph_draw(graph, pos=graph.vp.pos, vertex_size=12, vertex_fill_color=b, edge_color=ecolor, edge_pen_width=epen,
-               fit_view=True, adjust_aspect=False, ink_scale=0.9, output_size=(640, 480), output=title, overlap=True)
+               fit_view=True, adjust_aspect=False, ink_scale=0.9, output_size=(1000, 800), output=title, overlap=True)
 
 
 if __name__ == '__main__':
-    gen_fitted_graphs('data/wugs/dwug_de/graphs/full/', 'data/wugs/full_int_fit/dwug_de', 777, normalization=_norm_weight_to_int)
+    gen_fitted_graphs('data/wugs/dwug_de/graphs/full/', 'data/wugs/full_pics/dwug_de', 777, normalization=_norm_weight_to_int)

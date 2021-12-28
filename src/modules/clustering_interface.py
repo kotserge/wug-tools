@@ -96,7 +96,15 @@ def louvain_clustering(graph: nx.Graph, init_partition: dict = None, resolution:
     -------
     classes : list[Set[int]]
         A list of sets of nodes, where each set is a cluster
+
+    Raises
+    ------
+    ValueError
+        If the graph contains negative weights
     """
+
+    if _negative_weights_exist(graph):
+        raise ValueError("Negative weights are not supported by the Louvain method.")
 
     _graph = graph.copy()
 
@@ -136,7 +144,15 @@ def wsbm_clustering(graph: nx.Graph, distribution: str = 'discrete-binomial') ->
     -------
     classes : list[Set[int]]
         A list of sets of nodes, where each set is a cluster
+
+    Raises
+    ------
+    ValueError
+        If the graph contains negative weights
     """
+
+    if _negative_weights_exist(graph):
+        raise ValueError("Negative weights are not supported by the WSBM algorithm.")
 
     gt_graph, _, gt2nx = _nxgraph_to_graphtoolgraph(graph.copy())
     state: BlockState = _minimize(gt_graph, distribution)
@@ -191,3 +207,22 @@ def _minimize(graph: graph_tool.Graph, distribution) -> BlockState:
     return minimize_blockmodel_dl(graph,
                                   state_args=dict(deg_corr=False, recs=[graph.ep.weight], rec_types=[distribution]),
                                   multilevel_mcmc_args=dict(B_min=1, B_max=30, niter=100, entropy_args=dict(adjacency=False, degree_dl=False)))
+
+
+def _negative_weights_exist(graph: nx.Graph):
+    """Check if there are negative edges in the graph.
+
+    Parameters
+    ----------
+    graph: networkx.Graph
+        The graph to check negative edges for
+
+    Returns
+    -------
+    flag: bool
+        True if there are negative edges, False otherwise
+    """
+    for i, j in graph.edges():
+        if graph[i][j]['weight'] < 0:
+            return False
+    return True
