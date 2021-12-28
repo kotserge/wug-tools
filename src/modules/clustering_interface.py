@@ -30,7 +30,14 @@ def connected_components_clustering(graph: nx.Graph, positive_threshold: float =
     -------
     classes : list[Set[int]]
         A list of sets of nodes, where each set is a cluster
+
+    Raises
+    ------
+    ValueError
+        If the graph contains non-value weights
     """
+    if _check_nan_weights_exits(graph):
+        raise ValueError("NaN weights are not supported by the connected components method.")
 
     _graph = graph.copy()
 
@@ -65,7 +72,14 @@ def chinese_whispers_clustering(graph: nx.Graph, weighting: str = 'top', iterati
     -------
     classes : list[Set[int]]
         A list of sets of nodes, where each set is a cluster
+
+    Raises
+    ------
+    ValueError
+        If the graph contains non-value weights
     """
+    if _check_nan_weights_exits(graph):
+        raise ValueError("NaN weights are not supported by the Chinese Whispers method.")
 
     _graph = graph.copy()
 
@@ -100,11 +114,14 @@ def louvain_clustering(graph: nx.Graph, init_partition: dict = None, resolution:
     Raises
     ------
     ValueError
-        If the graph contains negative weights
+        If the graph contains negative weights or non-value weights
     """
 
     if _negative_weights_exist(graph):
         raise ValueError("Negative weights are not supported by the Louvain method.")
+
+    if _check_nan_weights_exits(graph):
+        raise ValueError("NaN weights are not supported by the Louvain method.")
 
     _graph = graph.copy()
 
@@ -119,8 +136,15 @@ def louvain_clustering(graph: nx.Graph, init_partition: dict = None, resolution:
 def _invert_cluster_label_dict(cluster_label_dict: dict) -> dict:
     """Invert the cluster label dict.
 
-    :param cluster_label_dict: dict of cluster label
-    :return: dict of node label
+    Parameters
+    ----------
+    cluster_label_dict: dict
+        The cluster label dict to invert
+
+    Returns
+    -------
+    inverted_cluster_label_dict: dict
+        The inverted cluster label dict
     """
     inv_map = {}
     for k, v in cluster_label_dict.items():
@@ -148,11 +172,14 @@ def wsbm_clustering(graph: nx.Graph, distribution: str = 'discrete-binomial') ->
     Raises
     ------
     ValueError
-        If the graph contains negative weights
+        If the graph contains negative weights or non-value weights
     """
 
     if _negative_weights_exist(graph):
         raise ValueError("Negative weights are not supported by the WSBM algorithm.")
+
+    if _check_nan_weights_exits(graph):
+        raise ValueError("NaN weights are not supported by the WSBM algorithm.")
 
     gt_graph, _, gt2nx = _nxgraph_to_graphtoolgraph(graph.copy())
     state: BlockState = _minimize(gt_graph, distribution)
@@ -176,6 +203,18 @@ def wsbm_clustering(graph: nx.Graph, distribution: str = 'discrete-binomial') ->
 
 
 def _nxgraph_to_graphtoolgraph(graph: nx.Graph):
+    """Convert a networkx graph to a graphtool graph.
+
+    Parameters
+    ----------
+    graph: networkx.Graph
+        The graph to convert
+
+    Returns
+    -------
+    gt_graph: graphtool.Graph
+        The converted graph
+    """
     graph_tool_graph = graph_tool.Graph(directed=False)
 
     nx2gt_vertex_id = dict()
@@ -203,7 +242,22 @@ def _nxgraph_to_graphtoolgraph(graph: nx.Graph):
     return graph_tool_graph, nx2gt_vertex_id, gt2nx_vertex_id
 
 
-def _minimize(graph: graph_tool.Graph, distribution) -> BlockState:
+def _minimize(graph: graph_tool.Graph, distribution: str) -> BlockState:
+    """Minimize the graph using the given distribution as described by graph-tool.
+
+    Parameters
+    ----------
+    graph: graphtool.Graph
+        The graph to minimize
+    distribution: str
+        The distribution to use for the WSBM algorithm.
+
+    Returns
+    -------
+    state: BlockState
+        The minimized graph as BlockState object.
+    """
+
     return minimize_blockmodel_dl(graph,
                                   state_args=dict(deg_corr=False, recs=[graph.ep.weight], rec_types=[distribution]),
                                   multilevel_mcmc_args=dict(B_min=1, B_max=30, niter=100, entropy_args=dict(adjacency=False, degree_dl=False)))
@@ -224,5 +278,24 @@ def _negative_weights_exist(graph: nx.Graph):
     """
     for i, j in graph.edges():
         if graph[i][j]['weight'] < 0:
-            return False
-    return True
+            return True
+    return False
+
+
+def _check_nan_weights_exits(graph: nx.Graph):
+    """Check if there are NaN weights in the graph.
+
+    Parameters
+    ----------
+    graph: networkx.Graph
+        The graph to check NaN weights for
+
+    Returns
+    -------
+    flag: bool
+        True if there are NaN weights, False otherwise
+    """
+    for i, j in graph.edges():
+        if np.isnan(graph[i][j]['weight']):
+            return True
+    return False
