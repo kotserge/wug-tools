@@ -6,7 +6,7 @@ import numpy as np
 import networkx as nx
 from collections import Counter
 
-from _correlation import cluster_correlation_search
+from clustering._correlation import cluster_correlation_search
 
 import chinese_whispers as cw
 import community as community_louvain
@@ -397,7 +397,7 @@ def _check_nan_weights_exits(graph: nx.Graph):
     flag: bool
         True if there are NaN weights, False otherwise
     """
-    for i, j in graph.edges():
-        if np.isnan(graph[i][j]["weight"]):
+    for edge in graph.edges:
+        if np.isnan(graph.get_edge_data(*edge)['weight']):
             return True
     return False
