@@ -6,6 +6,8 @@ import numpy as np
 import networkx as nx
 from collections import Counter
 
+from _correlation import cluster_correlation_search
+
 import chinese_whispers as cw
 import community as community_louvain
 
@@ -14,7 +16,9 @@ from graph_tool.inference import minimize_blockmodel_dl
 from graph_tool.inference.blockmodel import BlockState
 
 
-def connected_components_clustering(graph: nx.Graph, positive_threshold: float = 0.0, is_non_value=lambda x: np.isnan(x)) -> list:
+def connected_components_clustering(
+    graph: nx.Graph, positive_threshold: float = 0.0, is_non_value=lambda x: np.isnan(x)
+) -> list:
     """Clusters the graph into connected components.
 
     Parameters
@@ -37,11 +41,18 @@ def connected_components_clustering(graph: nx.Graph, positive_threshold: float =
         If the graph contains non-value weights
     """
     if _check_nan_weights_exits(graph):
-        raise ValueError("NaN weights are not supported by the connected components method.")
+        raise ValueError(
+            "NaN weights are not supported by the connected components method."
+        )
 
     _graph = graph.copy()
 
-    edges_negative = [(i, j) for (i, j) in _graph.edges() if _graph[i][j]['weight'] < positive_threshold or is_non_value(_graph[i][j]['weight'])]
+    edges_negative = [
+        (i, j)
+        for (i, j) in _graph.edges()
+        if _graph[i][j]["weight"] < positive_threshold
+        or is_non_value(_graph[i][j]["weight"])
+    ]
     _graph.remove_edges_from(edges_negative)
     components = nx.connected_components(_graph)
 
@@ -51,7 +62,59 @@ def connected_components_clustering(graph: nx.Graph, positive_threshold: float =
     return classes
 
 
-def chinese_whispers_clustering(graph: nx.Graph, weighting: str = 'top', iterations: int = 20, seed: int = None) -> list:
+def correlation_clustering(
+    graph: nx.Graph,
+    max_senses: int = 10,
+    max_attempts: int = 200,
+    max_iters: int = 5000,
+    initial: list = [],
+    split_flag=True,
+):
+    """Clusters the graph using the correlation clustering algorithm.
+
+    Parameters
+    ----------
+    graph: networkx.Graph
+        The graph for which to calculate the cluster labels
+    max_senses: int
+        The maximum number of senses a word can have
+    max_attempts: int
+        Number of restarts for optimization
+    max_iters: int
+        Maximum number of iterations for optimization
+    initial: list
+        Initial cluster labels (optional)
+    split_flag: bool
+        If True, non evidence clusters will be splitted
+
+    Returns
+    -------
+    classes : list[Set[int]]
+        A list of sets of nodes, where each set is a cluster
+
+    Raises
+    ------
+    ValueError
+        If the graph contains non-value weights
+    """
+
+    if _check_nan_weights_exits(graph):
+        raise ValueError(
+            "NaN weights are not supported by the correlation clustering method."
+        )
+
+    _graph = graph.copy()
+
+    clusters, _ = cluster_correlation_search(
+        _graph, max_senses, max_attempts, max_iters, initial, split_flag
+    )
+
+    return clusters
+
+
+def chinese_whispers_clustering(
+    graph: nx.Graph, weighting: str = "top", iterations: int = 20, seed: int = None
+) -> list:
     """Cluster graph based on Chinese Whispers.
 
     Parameters
@@ -79,11 +142,17 @@ def chinese_whispers_clustering(graph: nx.Graph, weighting: str = 'top', iterati
         If the graph contains non-value weights
     """
     if _check_nan_weights_exits(graph):
-        raise ValueError("NaN weights are not supported by the Chinese Whispers method.")
+        raise ValueError(
+            "NaN weights are not supported by the Chinese Whispers method."
+        )
 
     _graph = graph.copy()
 
-    _cw_clustering = cw.aggregate_clusters(cw.chinese_whispers(_graph, weighting=weighting, iterations=iterations, seed=seed))
+    _cw_clustering = cw.aggregate_clusters(
+        cw.chinese_whispers(
+            _graph, weighting=weighting, iterations=iterations, seed=seed
+        )
+    )
 
     classes = [v for _, v in _cw_clustering.items()]
     classes.sort(key=lambda x: len(x), reverse=True)
@@ -91,7 +160,12 @@ def chinese_whispers_clustering(graph: nx.Graph, weighting: str = 'top', iterati
     return classes
 
 
-def louvain_clustering(graph: nx.Graph, init_partition: dict = None, resolution: float = 1., random_state=None) -> list:
+def louvain_clustering(
+    graph: nx.Graph,
+    init_partition: dict = None,
+    resolution: float = 1.0,
+    random_state=None,
+) -> list:
     """Cluster graph based on Louvain Method.
 
     Parameters
@@ -125,7 +199,14 @@ def louvain_clustering(graph: nx.Graph, init_partition: dict = None, resolution:
 
     _graph = graph.copy()
 
-    _louvain_clustering = _invert_cluster_label_dict(community_louvain.best_partition(_graph, partition=init_partition, resolution=resolution, random_state=random_state))
+    _louvain_clustering = _invert_cluster_label_dict(
+        community_louvain.best_partition(
+            _graph,
+            partition=init_partition,
+            resolution=resolution,
+            random_state=random_state,
+        )
+    )
 
     classes = [v for _, v in _louvain_clustering.items()]
     classes.sort(key=lambda x: len(x), reverse=True)
@@ -153,8 +234,12 @@ def _invert_cluster_label_dict(cluster_label_dict: dict) -> dict:
     return inv_map
 
 
-def wsbm_clustering(graph: nx.Graph, distribution: str = 'discrete-binomial') -> list:
-    """ Cluster graph based on Weighted Stochastic Block Model.
+# These functions need GraphTool to be installed (see https://graph-tool.skewed.de/)
+# Hence, if not installed, they will raise an ImportError and need to be commented out
+
+
+def wsbm_clustering(graph: nx.Graph, distribution: str = "discrete-binomial") -> list:
+    """Cluster graph based on Weighted Stochastic Block Model.
 
     Parameters
     ----------
@@ -185,7 +270,15 @@ def wsbm_clustering(graph: nx.Graph, distribution: str = 'discrete-binomial') ->
     state: BlockState = _minimize(gt_graph, distribution)
 
     block2clusterid_map = {}
-    for i, (k, _) in enumerate(dict(sorted(Counter(state.get_blocks().get_array()).items(), key=lambda item: item[1], reverse=True)).items()):
+    for i, (k, _) in enumerate(
+        dict(
+            sorted(
+                Counter(state.get_blocks().get_array()).items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )
+        ).items()
+    ):
         block2clusterid_map[k] = i
 
     communities = {}
@@ -225,16 +318,16 @@ def _nxgraph_to_graphtoolgraph(graph: nx.Graph):
 
     new_weights = []
     for i, j in graph.edges():
-        current_weight = graph[i][j]['weight']
+        current_weight = graph[i][j]["weight"]
         if current_weight != 0 and not np.isnan(current_weight):
             graph_tool_graph.add_edge(nx2gt_vertex_id[i], nx2gt_vertex_id[j])
             new_weights.append(current_weight)
 
     original_edge_weights = graph_tool_graph.new_edge_property("double")
     original_edge_weights.a = new_weights
-    graph_tool_graph.ep['weight'] = original_edge_weights
+    graph_tool_graph.ep["weight"] = original_edge_weights
 
-    new_vertex_id = graph_tool_graph.new_vertex_property('string')
+    new_vertex_id = graph_tool_graph.new_vertex_property("string")
     for k, v in nx2gt_vertex_id.items():
         new_vertex_id[v] = str(k)
     graph_tool_graph.vp.id = new_vertex_id
@@ -258,9 +351,18 @@ def _minimize(graph: graph_tool.Graph, distribution: str) -> BlockState:
         The minimized graph as BlockState object.
     """
 
-    return minimize_blockmodel_dl(graph,
-                                  state_args=dict(deg_corr=False, recs=[graph.ep.weight], rec_types=[distribution]),
-                                  multilevel_mcmc_args=dict(B_min=1, B_max=30, niter=100, entropy_args=dict(adjacency=False, degree_dl=False)))
+    return minimize_blockmodel_dl(
+        graph,
+        state_args=dict(
+            deg_corr=False, recs=[graph.ep.weight], rec_types=[distribution]
+        ),
+        multilevel_mcmc_args=dict(
+            B_min=1,
+            B_max=30,
+            niter=100,
+            entropy_args=dict(adjacency=False, degree_dl=False),
+        ),
+    )
 
 
 def _negative_weights_exist(graph: nx.Graph):
@@ -277,7 +379,7 @@ def _negative_weights_exist(graph: nx.Graph):
         True if there are negative edges, False otherwise
     """
     for i, j in graph.edges():
-        if graph[i][j]['weight'] < 0:
+        if graph[i][j]["weight"] < 0:
             return True
     return False
 
@@ -296,6 +398,6 @@ def _check_nan_weights_exits(graph: nx.Graph):
         True if there are NaN weights, False otherwise
     """
     for i, j in graph.edges():
-        if np.isnan(graph[i][j]['weight']):
+        if np.isnan(graph[i][j]["weight"]):
             return True
     return False

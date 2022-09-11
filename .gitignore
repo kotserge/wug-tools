@@ -129,7 +129,7 @@ dmypy.json
 .pyre/
 
 # some miscellaneous stuff
-data/
+data/dwug*
 .vscode/
 
 # Ignore evals
